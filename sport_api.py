@@ -24,7 +24,7 @@ async def get_routes():
     async with aiohttp.request('GET', route_url, params=params) as response:
         data = await response.json()
     try:
-        route_data_list = filter(lambda route: route['points'] is not None and len(route['points']) == 1,
+        route_data_list = filter(lambda route: route['points'] is not None and len(route['points']) >= 1,
                                  data['data']['list'])
         return [FudanRoute(route_data) for route_data in route_data_list]
     except Exception:
@@ -92,8 +92,9 @@ class FudanRoute:
         self.id = data['route_id']
         self.name = data['name']
         self.type = data['types'][0]
-        self.start_point = Point(data['points'][0]['lat'],
-                                 data['points'][0]['lng'])
+        start_point = next((point for point in data['points'] if point.get('is_start_point')),
+                           data['points'][0])
+        self.start_point = Point(start_point['lat'], start_point['lng'])
 
     def pretty_print(self):
         print(f"#{self.id}: {self.name}")
