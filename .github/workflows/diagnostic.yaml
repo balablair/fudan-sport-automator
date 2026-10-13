@@ -1,0 +1,49 @@
+name: Read-only API Diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+        with:
+          python-version: '3.10'
+      - run: pip install -r requirements.txt
+      - name: Read routes and summary only
+        env:
+          USER_ID: ${{ secrets.USER_ID }}
+          FUDAN_SPORT_TOKEN: ${{ secrets.FUDAN_SPORT_TOKEN }}
+        run: |
+          python - <<'PY'
+          import asyncio, json, os
+          import aiohttp
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          async def check():
+              print('Beijing time:', datetime.now(ZoneInfo('Asia/Shanghai')).isoformat())
+              print('Credentials present:', bool(os.getenv('USER_ID')), bool(os.getenv('FUDAN_SPORT_TOKEN')))
+              async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20)) as session:
+                  for path in ['route/list', 'rank/mysummary']:
+                      try:
+                          async with session.get('https://sport.fudan.edu.cn/sapi/' + path, params={'userid': os.getenv('USER_ID'), 'token': os.getenv('FUDAN_SPORT_TOKEN')}) as response:
+                              data = await response.json()
+                              result = {'endpoint': path, 'http': response.status, 'status': data.get('status'), 'message': data.get('message')}
+                              if path == 'route/list':
+                                  result['route_count'] = len((data.get('data') or {}).get('list') or [])
+                              output = json.dumps(result, ensure_ascii=False)
+                              for key in ['USER_ID', 'FUDAN_SPORT_TOKEN']:
+                                  value = os.getenv(key)
+                                  if value:
+                                      output = output.replace(value, '[redacted]')
+                              print(output)
+                      except Exception as error:
+                          print(path, type(error).__name__)
+          asyncio.run(check())
+          PY
