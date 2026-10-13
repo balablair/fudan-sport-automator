@@ -28,7 +28,7 @@ async def get_routes():
                                  data['data']['list'])
         return [FudanRoute(route_data) for route_data in route_data_list]
     except Exception:
-        print(f"ERROR: {data['message']}")
+        print(f"ERROR (route/list): HTTP {response.status}, status={data.get('status')}, message={data.get('message')}")
         exit(1)
 
 
@@ -56,7 +56,7 @@ class FudanAPI:
         try:
             self.run_id = data['data']['run_id']
         except Exception:
-            print(f"ERROR: {data['message']}")
+            print(f"ERROR (run/start): HTTP {response.status}, status={data.get('status')}, message={data.get('message')}")
             exit(1)
 
     async def update(self, point):
